@@ -1,0 +1,10 @@
+# Programa cliente servidor de uma calculadora aritmética simples
+# O cliente (computador_1) solicita a execução de uma operação aritmética e
+# o servidor (computador_2) realiza o
+# calculo retornando o resultado para o cliente
+c_channel calculadora computador_1 computador_2
+# declaração do canal de comunicação calculadora associada a dos computadores (computador_1 e computador_2).
+SEQ
+# depois do SEQ todas as seguintes instruções identadas serão executadas de forma
+# seqüencial
+print("Digite a operação desejada: +, -, *, /")
