@@ -1,4 +1,4 @@
-import socket
+from server import Server
 
 # Definindo exceção para erros de sintaxe
 class SyntaxError(Exception):
@@ -36,7 +36,6 @@ tokens = [
     'IDENTIFIER'
 ]
 
-
 # Função para análise sintática
 def parser(tokens):
     # Índice do token atual
@@ -54,7 +53,6 @@ def parser(tokens):
     # Função para verificação de tokens
     def match(token_type):
         nonlocal current_token
-        print(token_type, tokens[current_token][0])
         if current_token < len(tokens) and tokens[current_token][0] == token_type:
             return True
         return False
@@ -63,7 +61,8 @@ def parser(tokens):
         if match('LPAREN'):
             get_next_token()
             if match('STRING'):
-                string = get_next_token()[1]
+                string = tokens[current_token][1]
+                print(string[1:-1]) # Remover aspas
                 if match('RPAREN'):
                     get_next_token()
                 else:
@@ -73,23 +72,27 @@ def parser(tokens):
         else:
             raise SyntaxError("Esperado '(' após PRINT")
 
-        print(string)
-
     def parse_send():
         if match('LPAREN'):
             get_next_token()  # Consumir token LPAREN
             if match('IDENTIFIER'):
-                get_next_token()  # Consumir token IDENTIFIER
+                operacao = tokens[current_token][1]
+                get_next_token()
                 if match('COMMA'):
                     get_next_token()  # Consumir token COMMA
                     if match('INTEGER') or match('FLOAT'):
+                        valor1 = tokens[current_token][1]
                         get_next_token()  # Consumir token INTEGER ou FLOAT
                         if match('COMMA'):
                             get_next_token()  # Consumir token COMMA
                             if match('INTEGER') or match('FLOAT'):
+                                valor2 = tokens[current_token][1]
                                 get_next_token()  # Consumir token INTEGER ou FLOAT
                                 if match('RPAREN'):
                                     get_next_token()  # Consumir token RPAREN
+
+                                    # send through server
+                                    
                                 else:
                                     raise SyntaxError("Esperado ')' após valor")
                             else:
@@ -120,22 +123,22 @@ def parser(tokens):
             raise SyntaxError("Esperado '(' após RECEIVE")
 
     def parse_input():
+        print('parse_input')
         if match('LPAREN'):
             get_next_token() # Consumir token LPAREN
             if match('STRING'):
-                string = get_next_token()[1]
+                string = tokens[current_token][1]
+                value = input(string)
+                print(value)
                 if match('RPAREN'):
                     get_next_token() # Consumir token RPAREN
+                    return value
                 else:
                     raise SyntaxError("Esperado ')' após STRING")
             else:
                 raise SyntaxError("Esperado STRING após '('")
         else:
             raise SyntaxError("Esperado '(' após INPUT")
-
-        value = input(string)
-        print(value)
-        return value
 
     def parse_while():
         if match('LPAREN'):
@@ -153,34 +156,54 @@ def parser(tokens):
 
     def parse_c_channel():
         if match('IDENTIFIER'):
-            channel = get_next_token()[1]
+            channel = tokens[current_token][1]
             variables[channel] = None
             get_next_token()
             if match('IDENTIFIER'):
-                pc_1 = get_next_token()[1]
                 get_next_token()
                 if match('IDENTIFIER'):
-                    pc_2 = get_next_token()[1]
                     get_next_token()
 
-        # criar socket
-        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        # conectar ao servidor
-        s.connect(('localhost', 12335))
+                    global server
+                    server = Server()
+                else:
+                    raise SyntaxError("Esperado IDENTIFIER após IDENTIFIER")
+            else:
+                raise SyntaxError("Esperado IDENTIFIER após IDENTIFIER")
+        else:
+            raise SyntaxError("Esperado IDENTIFIER após C_CHANNEL")
 
-        print(f'Conectado ao servidor {variables[channel]} na porta 12345')
+    def parse_assign(identifier):
+        variables[identifier] = expression()
+
+    def parse_if():
+        if match('LPAREN'):
+            get_next_token()  # Consumir token LPAREN
+            # Expressão dentro do parêntese do IF
+            expression()
+            if match('RPAREN'):
+                get_next_token()  # Consumir token RPAREN
+                # Corpo do IF
+                expression()
+                if match('ELSE'):
+                    get_next_token()  # Consumir token ELSE
+                    # Corpo do ELSE
+                    expression()
+            else:
+                raise SyntaxError("Esperado ')' após expressão do IF")
+        else:
+            raise SyntaxError("Esperado '(' após IF")
 
     # Função para expressão
     def expression():
         nonlocal current_token
+        print(tokens[current_token])
         if match('SEQ'):
             get_next_token()
-            while current_token < len(tokens) and not match('PAR'):
-                expression()
+            expression()
         elif match('PAR'):
             get_next_token()
-            while current_token < len(tokens) and not match('SEQ'):
-                expression()
+            expression()
         elif match('PRINT'):
             get_next_token() # Consumir token PRINT
             parse_print()
@@ -189,22 +212,7 @@ def parser(tokens):
             parse_input()
         elif match('IF'):
             get_next_token()  # Consumir token IF
-            if match('LPAREN'):
-                get_next_token()  # Consumir token LPAREN
-                # Expressão dentro do parêntese do IF
-                expression()
-                if match('RPAREN'):
-                    get_next_token()  # Consumir token RPAREN
-                    # Corpo do IF
-                    expression()
-                    if match('ELSE'):
-                        get_next_token()  # Consumir token ELSE
-                        # Corpo do ELSE
-                        expression()
-                else:
-                    raise SyntaxError("Esperado ')' após expressão do IF")
-            else:
-                raise SyntaxError("Esperado '(' após IF")
+            parse_if()
         elif match('WHILE'):
             get_next_token()  # Consumir token WHILE
             parse_while()
@@ -212,6 +220,7 @@ def parser(tokens):
             get_next_token()  # Consumir token C_CHANNEL
             parse_c_channel()
         elif match('IDENTIFIER'):
+            identifier = tokens[current_token][1]
             get_next_token()  # Consumir token IDENTIFIER
             if match('DOT'):
                 get_next_token()
@@ -222,18 +231,16 @@ def parser(tokens):
                     get_next_token() # Consumir token RECEIVE
                     parse_receive()
             if match('ASSIGN'):
-                get_next_token()  # Consumir token ASSIGN
-                expression()  # Expressão do lado direito da atribuição
+                get_next_token() # Consumir token ASSIGN
+                parse_assign(identifier)
         else:
             raise SyntaxError("Comando inválido")
 
     # Analisar expressão
     try:
-        expression()
-        if current_token < len(tokens):
-            raise SyntaxError("Tokens extras após o comando válido")
+        print(len(tokens))
+        while current_token < len(tokens):
+            print(current_token)
+            expression()
     except SyntaxError as e:
         return str(e)
-
-    return "Análise sintática bem-sucedida."
-
