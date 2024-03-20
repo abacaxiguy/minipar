@@ -10,7 +10,7 @@ SEQ
     operacao = input("Digite a operação desejada: ")
     valor1 = input("Digite o primeiro valor: ")
     valor2 = input("Digite o segundo valor: ")
-    calculadora.send(operação, valor1, valor2)
+    calculadora.send(operacao,valor1,valor2)
 
     # Imprime o resultado via print
 

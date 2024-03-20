@@ -11,6 +11,7 @@ tokens = [
     (r'c_channel', 'C_CHANNEL'),  # Palavra-chave C_CHANNEL
     (r'send', 'SEND'),            # Palavra-chave SEND
     (r'receive', 'RECEIVE'),      # Palavra-chave RECEIVE
+    (r'calculate', 'CALCULATE'),  # Palavra-chave CALCULATE
     (r'[\+\-\*/]', 'OPERATOR'),   # Operadores aritméticos
     (r'\d+\.\d+', 'FLOAT'),       # Números decimais
     (r'\d+', 'INTEGER'),          # Números inteiros
@@ -35,8 +36,6 @@ tokens = [
     (r'return', 'RETURN'),        # Palavra-chave RETURN
     (r'input', 'INPUT'),          # Palavra-chave INPUT
     (r'\w+', 'IDENTIFIER'),       # Identificadores (palavras)
-
-
 ]
 
 # Função para analisar o texto de entrada
