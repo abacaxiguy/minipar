@@ -1,4 +1,4 @@
-import src.server as server
+from src.server import Server
 
 # Definindo exceção para erros de sintaxe
 class SyntaxError(Exception):
@@ -42,6 +42,8 @@ def parser(tokens):
     # Índice do token atual
     current_token = 0
     variables = {}
+    server = None
+    conn = None
 
     # Função para obter o próximo token
     def get_next_token():
@@ -69,12 +71,26 @@ def parser(tokens):
                     get_next_token()
                 else:
                     raise SyntaxError("Esperado ')' após STRING")
+            elif match('IDENTIFIER'):
+                id = tokens[current_token][1]
+                if id in variables:
+                    print(variables[id])
+                    get_next_token()
+                    if match('RPAREN'):
+                        get_next_token()
+                    else:
+                        raise SyntaxError("Esperado ')' após IDENTIFIER")
+                else:
+                    raise SyntaxError(f"Variável {id} não definida")
             else:
                 raise SyntaxError("Esperado STRING após '('")
         else:
             raise SyntaxError("Esperado '(' após PRINT")
 
     def parse_send():
+        nonlocal server
+        nonlocal conn
+
         if match('LPAREN'):
             get_next_token()  # Consumir token LPAREN
             if match('IDENTIFIER'):
@@ -96,9 +112,7 @@ def parser(tokens):
                                 if match('RPAREN'):
                                     get_next_token()  # Consumir token RPAREN
 
-                                    # send through server
-                                    server.send(f'{operacao},{valor1},{valor2}')
-
+                                    conn = server.send(f'{operacao},{valor1},{valor2}')
                                 else:
                                     raise SyntaxError("Esperado ')' após valor")
                             else:
@@ -110,19 +124,25 @@ def parser(tokens):
                 else:
                     if match('RPAREN'):
                         get_next_token()
-                        server.send(operacao)
+                        server.send(str(operacao), conn)
             else:
                 raise SyntaxError("Esperado IDENTIFIER após '('")
         else:
             raise SyntaxError("Esperado '(' após SEND")
 
     def parse_receive():
+        nonlocal server
+        nonlocal conn
         if match('LPAREN'):
             get_next_token() # Consumir token LPAREN
             if match('RPAREN'):
                 get_next_token() # Consumir token RPAREN
 
-                return server.receive()
+                if conn:
+                    return server.receive(conn=conn)['response']
+                rcv = server.receive()
+                conn = rcv['conn']
+                return rcv['response']
             else:
                 raise SyntaxError("Esperado ')' após IDENTIFIER")
         else:
@@ -160,6 +180,8 @@ def parser(tokens):
             raise SyntaxError("Esperado '(' após WHILE")
 
     def parse_c_channel():
+        nonlocal server
+
         if match('IDENTIFIER'):
             channel = tokens[current_token][1]
 
@@ -170,6 +192,7 @@ def parser(tokens):
                 if match('IDENTIFIER'):
                     get_next_token()
 
+                    server = Server()
                     server.start()
                 else:
                     raise SyntaxError("Esperado IDENTIFIER após IDENTIFIER")
@@ -200,6 +223,7 @@ def parser(tokens):
             raise SyntaxError("Esperado '(' após IF")
 
     def parse_calc(identifier):
+        nonlocal server
         if match('LPAREN'):
             get_next_token()  # Consumir token LPAREN
             if match('IDENTIFIER'):
@@ -221,7 +245,6 @@ def parser(tokens):
 
     # Função para expressão
     def expression():
-        print(variables)
         nonlocal current_token
         if match('SEQ'):
             get_next_token()
@@ -268,5 +291,4 @@ def parser(tokens):
             expression()
     except SyntaxError as e:
         print(tokens[current_token])
-        print(tokens[current_token-1])
         print(f"Erro de sintaxe: {e} na posição {current_token}")
